@@ -16,7 +16,7 @@ principle applicable to other types of simulations (e.g., Monte-Carlo).
 
 For details, see the paper:  
 **Title:** *Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities*  
-**Author:** AUTHORS  
+**Author:** Nir Nitskansky, Kessem Clein, Barak Raveh  
 *(In preparation)*
 
 ## Repository Structure
@@ -38,12 +38,10 @@ Check out the **Jupyter Notebook tutorial**:
 ## How to Cite
 
 ```bibtex
-@article{your_citation_key,
-  author  = {Your Name and Others},
-  title   = {Your Paper Title},
-  journal = {Journal Name},
-  year    = {2025},
-  doi     = {Your DOI}
+@article{nitskansky-clein-raveh2025,
+  author  = {Nir Nitskansky and Kessem Clein and Barak Raveh},
+  title   = {Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities},
+  note    = {Manuscript in preparation, 2025}
 }
 
 
