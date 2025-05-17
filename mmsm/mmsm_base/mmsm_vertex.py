@@ -1,5 +1,6 @@
 """HierarchicalMSMVertex"""
 # Author: Kessem Clein <kessem.clein@mail.huji.ac.il>
+# Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
 import numpy as np
 from msmtools.analysis import stationary_distribution

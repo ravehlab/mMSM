@@ -3,9 +3,9 @@ import time
 import os
 import signal
 import argparse
-from systems.twospheres.imp_test_models import *
-from systems.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
-from systems.twospheres.imp_test_discretizers import dist_np
+from implementations.twospheres.imp_test_models import *
+from implementations.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
+from implementations.twospheres.imp_test_discretizers import dist_np
 from scipy.stats import binned_statistic
 from msmtools.estimation import count_matrix, transition_matrix
 

@@ -1,6 +1,7 @@
 """Self Expanding Multiscale MSM base class"""
 
 # Author: Kessem Clein <kessem.clein@mail.huji.ac.il>
+# Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
 from abc import ABC
 

@@ -1,9 +1,9 @@
 import numpy as np
 import pickle
 import argparse
-from systems.alaninedp.alaninedp_sim import DialanineOMMSampler
+from implementations.alaninedp.alaninedp_sim import DialanineOMMSampler
 from mmsm.mmsm_config import mMSMConfig
-from systems.alaninedp.alaninedp_discretizers import DialanineDiscretizerV, AlanineAngleDiscretizer
+from implementations.alaninedp.alaninedp_discretizers import DialanineDiscretizerV, AlanineAngleDiscretizer
 from experiments.runners.run_mmsm import run_hmsm
 
 
@@ -84,9 +84,9 @@ def run_7d(args):
                  time_mult=time_mult)
 
 if __name__ == '__main__':
-    PATH_TOP = "../../systems/alaninedp/runfiles/diala.top"
-    PATH_CRD = "../../systems/alaninedp/runfiles/diala.crd"
-    PATH_CRD_MIN = "../../systems/alaninedp/runfiles/minimized_initial_state.npy"
+    PATH_TOP = "../../implementations/alaninedp/runfiles/diala.top"
+    PATH_CRD = "../../implementations/alaninedp/runfiles/diala.crd"
+    PATH_CRD_MIN = "../../implementations/alaninedp/runfiles/minimized_initial_state.npy"
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--runtime_ns', type=int)

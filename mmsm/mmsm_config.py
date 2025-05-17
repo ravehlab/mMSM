@@ -1,6 +1,7 @@
 """mMSMConfig"""
 
 # Author: Kessem Clein <kessem.clein@mail.huji.ac.il>
+# Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
 from dataclasses import dataclass, field
 

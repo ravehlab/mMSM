@@ -1,8 +1,8 @@
 import pickle
-from systems.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
-from systems.twospheres.imp_test_discretizers import DistanceDiscretizer
+from implementations.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
+from implementations.twospheres.imp_test_discretizers import DistanceDiscretizer
 from mmsm.self_expanding_mmsm import SelfExpandingMultiscaleMSM
-from systems.twospheres.imp_test_models import *
+from implementations.twospheres.imp_test_models import *
 from experiments.runners.run_mmsm import run_hmsm, subset_transition
 from mmsm.mmsm_config import mMSMConfig
 import argparse

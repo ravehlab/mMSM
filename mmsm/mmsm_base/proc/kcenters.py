@@ -1,6 +1,7 @@
 """K-Centers clustering"""
 
 # Author: Kessem Clein <kessem.clein@mail.huji.ac.il>
+# Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
 import numpy as np
 import numba

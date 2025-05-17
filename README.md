@@ -17,7 +17,7 @@ principle applicable to other types of simulations (e.g., Monte-Carlo).
 For details, see the paper:  
 **Title:** *Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities*  
 **Author:** Nir Nitskansky, Kessem Clein, Barak Raveh  
-*(In preparation)*
+*(Manuscript under review)*
 
 ## Repository Structure
 
@@ -41,7 +41,7 @@ Check out the **Jupyter Notebook tutorial**:
 @article{nitskansky-clein-raveh2025,
   author  = {Nir Nitskansky and Kessem Clein and Barak Raveh},
   title   = {Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities},
-  note    = {Manuscript in preparation, 2025}
+  note    = {Manuscript under review, 2025}
 }
 
 
