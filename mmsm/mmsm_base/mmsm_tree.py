@@ -8,7 +8,7 @@ import numba
 from mmsm.mmsm_config import mMSMConfig
 from mmsm.mmsm_base.util import UniquePriorityQueue, count_dict
 from mmsm.mmsm_base.mmsm_vertex import MultiscaleMSMVertex
-from msmtools.analysis import stationary_distribution
+from mmsm.external.msmtools.msmtools import stationary_distribution
 from collections import defaultdict
 from mmsm.mmsm_base.proc.leiden import LeidenPartition
 from mmsm.mmsm_base.proc.vertex_samplers import get_vertex_sampler

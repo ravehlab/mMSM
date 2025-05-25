@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 import igraph
 import leidenalg as la
-from msmtools.analysis import timescales
+from mmsm.external.msmtools.msmtools import timescales
 
 __all__ = ['LeidenPartition']
 
@@ -41,7 +41,7 @@ class LeidenPartition:
 
     def _get_graph_diameter(self, vertex):
         n = vertex.n
-        adj = (vertex.T[:n, :n] > 0).astype('int')
+        adj = (vertex._T[:n, :n] > 0).astype('int')
         gnx = nx.from_numpy_array(adj)
         if not nx.is_connected(gnx):
             return np.inf

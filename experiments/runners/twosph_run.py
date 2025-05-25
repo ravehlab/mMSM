@@ -3,7 +3,7 @@ from implementations.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
 from implementations.twospheres.imp_test_discretizers import DistanceDiscretizer
 from mmsm.self_expanding_mmsm import SelfExpandingMultiscaleMSM
 from implementations.twospheres.imp_test_models import *
-from experiments.runners.run_mmsm import run_hmsm, subset_transition
+from experiments.runners.run_utils import run_hmsm
 from mmsm.mmsm_config import mMSMConfig
 import argparse
 

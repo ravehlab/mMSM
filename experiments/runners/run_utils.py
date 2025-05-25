@@ -1,14 +1,25 @@
 """
-Generic code to run mMSMs and gather run statistics.
+Generic code to run mMSMs and gather run statistics, as well as utilities for naive simulations.
 """
 
 import numpy as np
 import pickle
 import time
 import os
+import signal
 from mmsm.self_expanding_mmsm import SelfExpandingMultiscaleMSM
 from mmsm.mmsm_config import mMSMConfig
 
+from experiments.analysis.DELETEHIS import overlay_two_DELETETHIS
+
+class GracefulKiller:
+    kill_now = False
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self, *args):
+        self.kill_now = True
 
 def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, runtime_ns=100, hmsm_init=None, hmsm_init_data=None,
              stats_fn=None, print_tree_info=False, save_interval=1, time_mult=1e-6):
@@ -52,7 +63,6 @@ def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, r
             stats_fn(hmsm, data)
         save_counter += 1
         if save_counter >= save_interval*2:
-            print('saved')
             save_all()
             save_counter = 0
         if print_tree_info:
@@ -69,18 +79,32 @@ def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, r
         len(hmsm.tree.get_microstates())))
     save_all()
 
+def count_transitions(traj: np.ndarray,
+                      n_states: int,
+                      counts: np.ndarray = None) -> np.ndarray:
+    """
+    Count state‐to‐state transitions in a trajectory.
 
-def subset_transition(T, sd, assignment):
-    ids = np.unique(assignment).astype('int')
-    num_subsets = len(ids)
-    T_reduced = np.zeros((num_subsets, num_subsets))
-    for i, subset_from in enumerate(ids):
-        for j, subset_to in enumerate(ids):
-            res = T[assignment == subset_from, :][:, assignment == subset_to]
-            res = res.sum(axis=1).dot(sd[assignment == subset_from])
-            if res == 0:
-                T_reduced[i, j] = 0
-            else:
-                T_reduced[i, j] = res / sd[assignment == subset_from].sum()
+    Parameters
+    ----------
+    traj : np.ndarray, shape (T,)
+        Array of integer states in [0, n_states).
+    n_states : int
+        Number of possible states.
+    counts : np.ndarray or None, shape (n_states, n_states)
+        If provided, this matrix will be incremented in place.
+        Otherwise a new zero‐initialized matrix is created.
 
-    return np.nan_to_num(T_reduced)
+    Returns
+    -------
+    counts : np.ndarray, shape (n_states, n_states)
+        counts[i, j] is the number of times traj[t] == i and traj[t+1] == j.
+    """
+    if counts is None:
+        counts = np.zeros((n_states, n_states), dtype=np.int64)
+    # slice off last and first to get all transitions
+    src = traj[:-1]
+    dst = traj[1:]
+    # increment counts[src[t], dst[t]] by 1 for each t
+    np.add.at(counts, (src, dst), 1)
+    return counts

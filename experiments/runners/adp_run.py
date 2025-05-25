@@ -1,11 +1,13 @@
 import numpy as np
 import pickle
 import argparse
+import warnings
 from implementations.alaninedp.alaninedp_sim import DialanineOMMSampler
 from mmsm.mmsm_config import mMSMConfig
 from implementations.alaninedp.alaninedp_discretizers import DialanineDiscretizerV, AlanineAngleDiscretizer
-from experiments.runners.run_mmsm import run_hmsm
+from experiments.runners.run_utils import run_hmsm
 
+warnings.filterwarnings("ignore", category=UserWarning)
 
 def dial_mmsm_statfn(mmsm, data):
     if "time_ns" not in data:

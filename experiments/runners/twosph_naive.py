@@ -1,23 +1,12 @@
 import pickle
 import time
 import os
-import signal
 import argparse
 from implementations.twospheres.imp_test_models import *
 from implementations.twospheres.imp_bd_sampler import IMPBrownianDynamicsSampler
 from implementations.twospheres.imp_test_discretizers import dist_np
 from scipy.stats import binned_statistic
-from msmtools.estimation import count_matrix, transition_matrix
-
-
-class GracefulKiller:
-    kill_now = False
-    def __init__(self):
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    def exit_gracefully(self, *args):
-        self.kill_now = True
+from experiments.runners.run_utils import count_transitions, GracefulKiller
 
 
 class TrajProcessor:
@@ -42,8 +31,7 @@ class TrajProcessor:
         self.count_transitions(dtraj)
 
     def count_transitions(self, dtraj):
-        self.t_counts += count_matrix(dtraj, lag=1, sparse_return=False,
-                                      nstates=self.clstrs.shape[0])
+        self.t_counts += count_transitions(dtraj, n_states=self.clstrs.shape[0])
 
 
 def coverage(hist, left, right):

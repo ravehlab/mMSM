@@ -1,13 +1,13 @@
 # README
 
-This folder contains the test scripts for running the two spheres system and the alanine dipeptide system, as described in the paper.
+This folder contains the test scripts for running the two spheres system and the alanine dipeptide system, as described in our accompanying manuscript (Nitskansky et al., 2025).
 
 ## Files
 
 - `run_mmsm.py`: Generic mMSM-explore run script.
-- `twosph_naive.py`: Naive simulation run for the two spheres system.
+- `twosph_naive.py`: Runs a naive simulation for the two spheres system.
 - `twosph_run.py`: Runs mMSM-explore on the two spheres system.
-- `adp_naive.py`: Naive simulation run for the alanine dipeptide system.
+- `adp_naive.py`:  Runs a naive simulation for the alanine dipeptide system.
 - `adp_run.py`: Runs mMSM-explore on the alanine dipeptide system.
 
 ## Usage

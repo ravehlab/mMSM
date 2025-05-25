@@ -9,8 +9,7 @@ import openmm.app as ommapp
 from implementations.alaninedp.alaninedp_sim import DialanineOMMSampler
 from implementations.alaninedp.alaninedp_discretizers import disc_dhdrl, disc_dhdrl_vs, disc_dhdrl_7
 from scipy.stats import binned_statistic_2d
-from msmtools.estimation import count_matrix
-from datetime import datetime
+from experiments.runners.run_utils import count_transitions, GracefulKiller
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
@@ -48,36 +47,6 @@ def calc_exp_rate_2dgrid(tp):
                            range=((-180, 180), (-180, 180)))[0]
     return (chist > 0).sum() / chist.size
 
-class GracefulKiller:
-    kill_now = False
-    def __init__(self):
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    def exit_gracefully(self, *args):
-        self.kill_now = True
-
-
-class TrajProcessor2D:
-    def __init__(self, discretizer_fn, edges, num_bins=(50, 50), num_trajs=1):
-        self.dfn = discretizer_fn
-        self.edges = edges
-        self.num_bins = num_bins
-        self.n_states = self.num_bins[0] * self.num_bins[1]
-        self.hist = np.zeros(num_bins)
-        self.last_configs = [None for _ in range(num_trajs)]
-        self.statistics = dict()
-        self.t_counts = np.zeros((self.n_states, self.n_states))
-
-    def process(self, data, traj_id=0):
-        self.last_configs[traj_id] = data[-1]
-        dtraj = self.dfn(data)
-        binned = binned_statistic_2d(dtraj[:, 0], dtraj[:, 1], None, statistic='count',
-                                     bins=self.num_bins, range=self.edges, expand_binnumbers=True)
-        self.hist += binned.statistic
-        traj = np.ravel_multi_index((binned.binnumber-1), self.num_bins)
-        self.t_counts += count_matrix(traj, lag=1, sparse_return=False, nstates=self.n_states)
-
 
 class TrajProcessor2DGrid:
     def __init__(self, discretizer_fn, edges, num_bins):
@@ -98,7 +67,7 @@ class TrajProcessor2DGrid:
         binned = binned_statistic_2d(dtraj[:, 0], dtraj[:, 1], None, statistic='count',
                                      bins=self.bins, expand_binnumbers=True)
         traj = np.ravel_multi_index((binned.binnumber-1), self.num_bins)
-        self.count_matrix += count_matrix(traj, lag=1, sparse_return=False, nstates=self.n_states)
+        self.count_matrix += count_transitions(traj, n_states=self.n_states)
 
     def index_to_state(self, state_ids):
         """Converts a state/s id in [0,1,...,self.n_states] to a 2D configuration."""
@@ -120,7 +89,7 @@ class TrajProcessorKmeds:
         dtraj = self.dfn(data)
         self.last_config = data[-1]
         dists, clstrs = self.kcenters._nearest_neighbors.kneighbors(dtraj, n_neighbors=1)
-        self.count_matrix += count_matrix(clstrs.flatten(), lag=1, sparse_return=False, nstates=self.kcenters.n_states)
+        self.count_matrix += count_transitions(clstrs.flatten(), n_states=self.kcenters.n_states)
 
 
 def naive_2d_run(runtime_ns, out_file, tp_cont):
@@ -158,8 +127,6 @@ def run_sim2(tp, sampler, runtime_ns, traj_size, traj_step, out_file, stats=Fals
     print(f"A simulation of {runtime_ns} ns started at {time.ctime()}")
     while sim_time_ns < runtime_ns:
         traj = sampler.sample_from_states([tp.last_config], traj_size, 1, traj_step)[0]
-        print(traj[0])
-        print(traj[0].shape)
         tp.process(traj)
         sim_time_ns += traj_size * sampler.dt * 1e-3 * traj_step
         tp.total_runtime_ns += traj_size * sampler.dt * 1e-3 * traj_step

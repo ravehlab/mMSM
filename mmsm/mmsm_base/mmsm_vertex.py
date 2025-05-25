@@ -3,7 +3,7 @@
 # Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
 import numpy as np
-from msmtools.analysis import stationary_distribution
+from mmsm.external.msmtools.msmtools import stationary_distribution
 from mmsm.mmsm_base.util import get_parent_update_condition, get_unique_id
 from mmsm.mmsm_config import mMSMConfig
 
