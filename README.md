@@ -31,8 +31,29 @@ For details, see the paper:
 | `README.md`                   | This file                                           |
 
 ## Quick Start
-Check out the **Jupyter Notebook tutorial**:
 
+To get started, install the required dependencies using **either** Conda or pip:
+
+**Using Conda (recommended):**
+
+```
+conda env create -f environment-notebook.yml
+conda activate mmsm_nb
+```
+
+**Using pip:**
+
+```
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-notebook.txt
+```
+
+> **Note:** Some packages (e.g., `openmm`, `leidenalg`) may be easier to install via Conda due to system dependencies.
+
+If you only wish to use the core method (without running the notebook), use the `environment-base.yml` or `requirements-base.txt` instead.
+
+Check out the **Jupyter Notebook tutorial**:  
 [tutorial.ipynb](tutorial.ipynb)
 
 ## How to Cite

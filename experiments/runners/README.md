@@ -20,3 +20,11 @@ python runner.py --out output_file_path --runtime_ns 100 [--c path_to_previous_r
 
 Replace `runner.py` with the desired script (e.g., `twosph_run.py`, `adp_run.py`, etc.).  
 The `--c` option can be used to specify the output from a previous run to continue from that point.
+
+## Environment Setup
+
+All scripts assume the **base environment** is installed. You can set it up using either `environment-base.yml` (for Conda) or `requirements-base.txt` (for pip), found in the root directory.
+
+- Running the **two spheres system** requires installing the [Integrative Modeling Platform](https://integrativemodeling.org) (`imp`) on top of the base environment.  
+- Running the **alanine dipeptide system** requires that [OpenMM](https://openmm.org) (`openmm`) is installed.
+

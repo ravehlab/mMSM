@@ -238,6 +238,36 @@ class MultiscaleMSMTree:
                     refine_history.add((vertex.id, vertex.height))
                     self._refine_partition(vertex)
         # print(f"Merges: {self.moves_done} / {self.moves_tried}")
+        self._trim_top_levels()
+
+
+
+    def _trim_top_levels(self):
+        to_del = dict()
+        cur_height = self.height - 1  # start from the root's children
+        while np.all(np.array([len(self.vertices[v].children) for v in self.get_level(cur_height)]) == 1) and cur_height != 1:
+            # gather all macrostates with a single child which is not a microstate
+            to_del[cur_height] = self.get_level(cur_height)
+            cur_height -= 1
+
+        if len(to_del) == 0:
+            return
+
+        for del_h, del_list in to_del.items():
+            for del_v in del_list:
+                del self.vertices[del_v]
+            del self._levels[del_h]
+
+        for v in self.get_level(cur_height): # set root as parent for the remaining last level
+            self.vertices[v].set_parent(self._root)
+
+        # adjust the root
+        root = self.vertices[self._root]
+        del self._levels[root.height]
+        root._children = set(self.get_level(cur_height))
+        root.height = cur_height + 1
+        self._levels[root.height] = [root.id]
+        self.vertices[self._root].update()
 
     def _refine_partition(self, vertex: MultiscaleMSMVertex):
         if vertex._check_split_condition():

@@ -42,7 +42,7 @@ def k_centers(data : np.ndarray, k=None, cutoff=None):
     if k is None and cutoff is None:
         raise ValueError("at least one of k or cutoff must be defined")
     N = data.shape[0]
-    clusters = np.zeros(N, dtype=np.int)
+    clusters = np.zeros(N, dtype=int)
     centers = []
     distances = np.zeros(N)
     stop_conditions = []

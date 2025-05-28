@@ -49,7 +49,8 @@ if __name__ == '__main__':
     disc_cutoff = 0.05
     step_size = 30
     rep_sample_size = 30
-    print_tree_info = False
+    print_tree_info = True
+    save_interval = 5
 
     edges = [22, 24.41, 30.32, 39, 47.68, 53.6, 56]
     mins = [22.7, 27., 34., 44., 51., 55.25]
@@ -67,15 +68,15 @@ if __name__ == '__main__':
                           sampling_heuristics=['equilibrium', 'exploration'],
                           sampling_heuristic_weights=[0.3, 0.7])
         run_hmsm(sampler, discretizer, cnfg, f_name, runtime_ns, print_tree_info=print_tree_info,
-                 stats_fn=stat_fn_model1, save_interval=5)
+                 stats_fn=stat_fn_model1, save_interval=save_interval)
     else:
         prev_name = args.c
-        with open(f'{f_name}.pkl', 'rb') as f:
+        with open(f'{prev_name}.pkl', 'rb') as f:
             mmsm = pickle.load(f)
-        with open(f'{f_name}.data', 'rb') as f:
+        with open(f'{prev_name}.data', 'rb') as f:
             data = pickle.load(f)
         mmsm._sampler.init_bd(*model_fn(), deserialized=True)
         run_hmsm(None, None, None, f_name, runtime_ns, print_tree_info=print_tree_info,
-                 hmsm_init=mmsm, hmsm_init_data=data, stats_fn=stat_fn_model1)
+                 hmsm_init=mmsm, hmsm_init_data=data, stats_fn=stat_fn_model1, save_interval=save_interval)
 
 

@@ -10,8 +10,6 @@ import signal
 from mmsm.self_expanding_mmsm import SelfExpandingMultiscaleMSM
 from mmsm.mmsm_config import mMSMConfig
 
-from experiments.analysis.DELETEHIS import overlay_two_DELETETHIS
-
 class GracefulKiller:
     kill_now = False
     def __init__(self):
@@ -20,6 +18,14 @@ class GracefulKiller:
 
     def exit_gracefully(self, *args):
         self.kill_now = True
+
+
+def print_levels(mmsm: SelfExpandingMultiscaleMSM):
+    print("Height: {0} | Vertices: {1} | Microstates: {2}".format(
+        mmsm.tree.height,
+        [len(mmsm.tree.get_level(i)) for i in range(mmsm.tree.height + 1)],
+        len(mmsm.tree._microstate_counts)))
+
 
 def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, runtime_ns=100, hmsm_init=None, hmsm_init_data=None,
              stats_fn=None, print_tree_info=False, save_interval=1, time_mult=1e-6):
@@ -62,21 +68,15 @@ def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, r
         if stats_fn is not None:
             stats_fn(hmsm, data)
         save_counter += 1
-        if save_counter >= save_interval*2:
+        if True:
             save_all()
             save_counter = 0
         if print_tree_info:
             print("\r")
-            print("Height: {0} | Vertices: {1} | Microstates: {2}".format(
-                hmsm.tree.height,
-                [len(hmsm.tree.get_level(i)) for i in range(hmsm.tree.height + 1)],
-                len(hmsm.tree._microstate_counts)))
+            print_levels(hmsm)
     print("")
     print("Final tree structure:")
-    print("Height: {0} | Vertices: {1} | Microstates: {2}".format(
-        hmsm.tree.height,
-        [len(hmsm.tree.get_level(i)) for i in range(hmsm.tree.height + 1)],
-        len(hmsm.tree.get_microstates())))
+    print_levels(hmsm)
     save_all()
 
 def count_transitions(traj: np.ndarray,
