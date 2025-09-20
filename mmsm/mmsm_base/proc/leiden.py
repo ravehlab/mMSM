@@ -6,7 +6,6 @@ from mmsm.external.msmtools.msmtools import timescales
 
 __all__ = ['LeidenPartition']
 
-
 class LeidenPartition:
     def __init__(self):
         pass
@@ -19,6 +18,8 @@ class LeidenPartition:
         if vertex.partition_changed:
             return True
         if self._get_graph_diameter(vertex) > vertex.config.partition_diameter_threshold:
+            return True
+        if np.random.random(size=1)[0] < vertex.config.random_split:
             return True
         return False
 
@@ -48,14 +49,15 @@ class LeidenPartition:
         return nx.approximation.diameter(gnx)
 
     def _root_split_condition(self, vertex):
-        ts = timescales(vertex.T + np.finfo('float').eps, 1)[1:]
+        ts = timescales(vertex._T + np.finfo('float').eps, 1)[1:]
+        if np.any(np.isinf(ts)):  # When transition statistics are sparse, we may have several ev's of 1
+            if self._get_graph_diameter(vertex) > vertex.config.partition_diameter_threshold:
+                return True
+            return False
         log_ts = np.log(ts)
         groups = group_timescales(log_ts, max_r=1)
         if len(np.unique(groups)) > 1:
             return True
-            # cutoff = ts[np.argmax(groups >= np.max(groups)-1)]
-            # if vertex.tree.total_sim_time_ns > cutoff*vertex.tree.base_timestep*vertex.tau*5*1e-4:
-            #     return True
         return False
 
 

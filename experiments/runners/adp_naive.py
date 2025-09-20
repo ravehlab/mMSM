@@ -94,15 +94,15 @@ class TrajProcessorKmeds:
 
 def naive_2d_run(runtime_ns, out_file, tp_cont):
     STEP_SIZE_FS = 2
-    TAU_MULT = 10
+    TAU_MULT = 20
     TRAJ_SIZE = 2000
     sampler = DialanineOMMSampler(PATH_TOP,
-                                  cuda=False, temp0=400, return_vs=True, dt_ps=STEP_SIZE_FS * 1e-3,
+                                  cuda=True, temp0=400, return_vs=True, dt_ps=STEP_SIZE_FS * 1e-3,
                                   concurrent_sims=1)
     # inpcrd = ommapp.AmberInpcrdFile(PATH_CRD).positions
     # startp = DialanineOMMSampler.quantity_to_array(inpcrd)
     # startp = np.stack([startp, np.zeros_like(startp)])
-    startp = np.load(PATH_CRD_MIN)
+    startp = np.load(PATH_CRD_MIN) / 10
 
     if tp_cont is None:
         tp = TrajProcessor2DGrid(discretizer_fn=d_fn, edges=[[-180, 180], [-180, 180]], num_bins=(100, 100))
@@ -116,34 +116,35 @@ def naive_2d_run(runtime_ns, out_file, tp_cont):
 def run_sim2(tp, sampler, runtime_ns, traj_size, traj_step, out_file, stats=False):
     # traj_step == the number of base (dt) steps between trajectory frames
     sim_start = time.time()
-    start_sim_time_ns = tp.total_runtime_ns
-    sim_time_ns = 0
+    start_time_ns = tp.total_runtime_ns
+    time_mult = 1e-3
     traj = []
     killer = GracefulKiller()
     save_timer = time.time()
-
+    total_runtime = start_time_ns + runtime_ns
     # rnd_config = tp.last_config
+    s_time = time.time()
 
     print(f"A simulation of {runtime_ns} ns started at {time.ctime()}")
-    while sim_time_ns < runtime_ns:
+    while sampler.total_simulation_time*time_mult < total_runtime:
         traj = sampler.sample_from_states([tp.last_config], traj_size, 1, traj_step)[0]
         tp.process(traj)
-        sim_time_ns += traj_size * sampler.dt * 1e-3 * traj_step
-        tp.total_runtime_ns += traj_size * sampler.dt * 1e-3 * traj_step
+        tp.total_runtime_ns = sampler.total_simulation_time
 
         traj = []
-        print(
-            f"\r({os.getpid()}) Simulated {sim_time_ns + start_sim_time_ns:.3f}/{runtime_ns + start_sim_time_ns} ns ({3600 * sim_time_ns / (time.time() - sim_start):.3f} ns/h, "
-            f"running for {(time.time() - sim_start) / 3600:.2f} hrs)", end="")
+        print("\r({3}) Total simulation time: {0:.3f}/{1} ns ({2:.4f}ns/h)".format(
+            sampler.total_simulation_time * time_mult, total_runtime,
+            3600 * ((sampler.total_simulation_time * time_mult - start_time_ns) / (time.time() - s_time)),
+            os.getpid()))
         if stats:
             tp.run_statistics['time_ns'].append(tp.total_runtime_ns)
             # tp.run_statistics['exp_rate'].append(calc_exp_rate(tp))
             tp.run_statistics['exp_rate'].append(calc_exp_rate_2dgrid(tp))
         if (time.time() - save_timer) / 3600 >= 0.25:  # Saves every <rhs>> hours
-
-            print(
-                f"\r({os.getpid()}) Simulated {sim_time_ns + start_sim_time_ns:.3f}/{runtime_ns + start_sim_time_ns} ns ({3600 * sim_time_ns / (time.time() - sim_start):.3f} ns/h, "
-                f"running for {(time.time() - sim_start) / 3600:.2f} hrs)", end="", flush=True)
+            print("\r({3}) Total simulation time: {0:.3f}/{1} ns ({2:.4f}ns/h)".format(
+                sampler.total_simulation_time * time_mult, total_runtime,
+                3600 * ((sampler.total_simulation_time * time_mult - start_time_ns) / (time.time() - s_time)),
+                os.getpid()))
             with open(out_file, 'wb') as f2:
                 pickle.dump(tp, f2)
             with open(out_file + "_bu", 'wb') as f2:

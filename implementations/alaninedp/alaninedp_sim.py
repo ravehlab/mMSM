@@ -12,12 +12,12 @@ class DialanineOMMSampler(BaseTrajectorySampler):
         self.prmtop = ommapp.AmberPrmtopFile(prmtop_path)
         self.system = self.prmtop.createSystem(nonbondedCutoff=2 * omm.unit.nanometer,
                                           constraints=ommapp.HBonds, implicitSolvent=ommapp.GBn2)
-        self.dt = dt_ps
+        self.dt_ps = dt_ps
         self.temp0 = temp0
         self.cuda = cuda
         self.concurrent = concurrent_sims
-        self.start_state = None
         self.return_vs = return_vs
+        self._total_simulation_time_ps = 0
         if concurrent_sims == 1:
             self.integrator = self._get_integrator()
             if cuda:
@@ -31,19 +31,12 @@ class DialanineOMMSampler(BaseTrajectorySampler):
                 # self.simulation = ommapp.Simulation(self.prmtop.topology, self.system, self.integrator)
 
     @property
-    def timestep_size(self):
-        return self.dt
+    def timestep(self):
+        return self.dt_ps
 
     @property
-    def initial_state(self):
-        return self.start_state
-
-    @initial_state.setter
-    def initial_state(self, value):
-        self.start_state = value
-
-    def get_initial_sample(self, sample_len, n_samples, sample_interval=1):
-        return self.sample_from_states([self.initial_state], sample_len, n_samples, sample_interval)
+    def total_simulation_time(self):
+        return self._total_simulation_time_ps
 
     def sample_from_states(self, states, sample_len, n_samples, sample_interval=1):
         """Will simulate sample_len-1 steps."""
@@ -52,7 +45,6 @@ class DialanineOMMSampler(BaseTrajectorySampler):
 
         trajs = []
         for start_state in states:
-
             if self.return_vs:
                 start_pos_quan = self.array_to_quantity(start_state[0])
                 start_vs_quan = self.array_to_quantity(start_state[1],
@@ -71,13 +63,14 @@ class DialanineOMMSampler(BaseTrajectorySampler):
 
                     if self.return_vs:
                         cur_state = self.simulation.context.getState(getPositions=True, getVelocities=True)
-                        traj.append(np.array([cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.angstrom),
+                        traj.append(np.array([cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.nanometer),
                                     cur_state.getVelocities(asNumpy=True).value_in_unit(
                                         ommunits.nanometer / ommunits.picosecond)]))
                     else:
                         cur_state = self.simulation.context.getState(getPositions=True)
-                        traj.append(cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.angstrom))
+                        traj.append(cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.nanometer))
                 trajs.append(traj)
+        self._total_simulation_time_ps += len(states) * n_samples * (sample_len - 1) * self.dt_ps * sample_interval
         return trajs
 
     def _sample_from_states_parallel(self, states, sample_len, n_samples, sample_interval=1):
@@ -86,6 +79,7 @@ class DialanineOMMSampler(BaseTrajectorySampler):
             trajs = p.starmap(self._single_simulation, tasks)
         # for t in tasks:
         #     a = self._single_simulation(*t)
+        self._total_simulation_time_ps += len(states) * n_samples * (sample_len - 1) * self.dt_ps * sample_interval
         return trajs
 
     def _single_simulation(self, start_state, n_steps, sample_interval=1):
@@ -95,12 +89,12 @@ class DialanineOMMSampler(BaseTrajectorySampler):
             simulation.step(sample_interval)
             if self.return_vs:
                 cur_state = simulation.context.getState(getPositions=True, getVelocities=True)
-                traj.append([cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.angstrom),
+                traj.append([cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.nanometer),
                              cur_state.getVelocities(asNumpy=True).value_in_unit(
                                  ommunits.nanometer / ommunits.picosecond)])
             else:
                 cur_state = simulation.context.getState(getPositions=True)
-                traj.append(cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.angstrom))
+                traj.append(cur_state.getPositions(asNumpy=True).value_in_unit(ommunits.nanometer))
         return traj
 
     def _setup_simulation(self, start_state):
@@ -140,10 +134,10 @@ class DialanineOMMSampler(BaseTrajectorySampler):
         # return omm.BrownianIntegrator(self.temp0 * omm.unit.kelvin, 250 / omm.unit.picosecond,
         #                               self.dt * omm.unit.picoseconds)
         return omm.LangevinMiddleIntegrator(self.temp0 * omm.unit.kelvin, 0.01 / omm.unit.picosecond,
-                                            self.dt * omm.unit.picoseconds)
+                                            self.dt_ps * omm.unit.picoseconds)
 
     @staticmethod
-    def array_to_quantity(array, unit=ommunits.angstrom):
+    def array_to_quantity(array, unit=ommunits.nanometer):
         """Return a Quantity object with array as its value, in angstrom. Not sure how
         efficient this is - perhaps the simulations can accept a Quantity object defined differently."""
         return ommunits.Quantity([omm.Vec3(*row) for row in array.tolist()], unit=unit)

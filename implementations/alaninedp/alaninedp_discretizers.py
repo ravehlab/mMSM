@@ -3,7 +3,6 @@ import numba
 from mmsm.mmsm_base.base_discretizer import BaseDiscretizer
 from mmsm.mmsm_base.proc.kcenters import KCentersDiscretizer
 
-
 @numba.njit
 def dihedral_angle(p0, p1, p2, p3):
     """Dihedral angle formula, adapted from
@@ -104,7 +103,6 @@ class AlanineAngleDiscretizer(BaseDiscretizer):
         return self._kcenters.n_states
 
     def _coarse_grain_states(self, data):
-        # 0 - Phi, 1 - Psi
         angles = np.vstack(disc_dhdrl_7(data))
         # phis_psis = np.vstack((disc_dhdrl_vs(data))).T
         return self._kcenters._coarse_grain_states(angles)

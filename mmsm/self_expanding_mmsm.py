@@ -3,8 +3,6 @@
 # Author: Kessem Clein <kessem.clein@mail.huji.ac.il>
 # Modified by: Nir Nitskansky <nir.nitskansky@mail.huji.ac.il>
 
-from abc import ABC
-
 import warnings
 import numpy as np
 from mmsm.mmsm_config import mMSMConfig
@@ -13,9 +11,12 @@ from mmsm.mmsm_base.base_discretizer import BaseDiscretizer
 from mmsm.mmsm_base.mmsm_tree import MultiscaleMSMTree
 from mmsm.mmsm_base.util import get_threshold_check_function
 
-class SelfExpandingMultiscaleMSM(ABC):
 
-    def __init__(self, sampler:BaseTrajectorySampler, discretizer:BaseDiscretizer,
+import time
+from contextlib import contextmanager
+
+class SelfExpandingMultiscaleMSM:
+    def __init__(self, sampler:BaseTrajectorySampler, discretizer:BaseDiscretizer, x_init,
                  config:mMSMConfig=None, **config_kwargs):
         self._sampler = sampler
         self._discretizer = discretizer
@@ -23,23 +24,14 @@ class SelfExpandingMultiscaleMSM(ABC):
             self.config = mMSMConfig(**config_kwargs)
         else:
             self.config = config
-        self._effective_timestep = self._sampler.timestep_size * self.config.base_tau
-        self._hmsm_tree: MultiscaleMSMTree = self._init_tree()
+        self.x_init = np.copy(x_init)
+        self._tau0 = self._sampler.timestep * self.config.base_tau * self.config.count_stride
+        self._mmsm_tree: MultiscaleMSMTree = self._init_tree()
         self._n_samples = 0
-        self._init_sample()
 
     def _init_tree(self):
-        tree = MultiscaleMSMTree(self.config, self._effective_timestep)
+        tree = MultiscaleMSMTree(self.config)
         return tree
-
-    def _init_sample(self):
-        dtrajs = self._sampler.get_initial_sample(self.config.trajectory_len,
-                                                  self.config.n_trajectories,
-                                                  self.config.base_tau)
-        dtrajs = self._discretize_trajectories(dtrajs)
-        self._hmsm_tree.update_model_from_trajectories(dtrajs)
-        self._hmsm_tree.do_all_updates_by_height()
-        self._n_samples += self.batch_size
 
     @property
     def batch_size(self):
@@ -47,36 +39,38 @@ class SelfExpandingMultiscaleMSM(ABC):
 
     @property
     def timestep(self):
-        return self._effective_timestep
-
-    @property
-    def total_simulation_time(self):
-        return self._n_samples * self._effective_timestep
+        return self._tau0
 
     @property
     def tree(self):
-        return self._hmsm_tree
+        return self._mmsm_tree
 
     @property
     def discretizer(self):
         return self._discretizer
 
     def get_timescale(self):
-        return self._hmsm_tree.get_longest_timescale() * self.timestep
+        return self._mmsm_tree.get_longest_timescale() * self.timestep
 
     def _discretize_trajectories(self, trajs):
         return [self.discretizer.get_coarse_grained_states(traj) for traj in trajs]
 
-    def _get_dtraj(self, initial_microstates, num_trajs, traj_len, step_size):
-        initial_points = [self.discretizer.sample_from(ms) for ms in initial_microstates]
-        # initial_points = self._get_reps_from_microstates(initial_microstates)
+    def _get_dtraj(self, initial_microstates, num_trajs, traj_len, step_size, configurations=False):
+        if configurations:
+            initial_points = initial_microstates
+        else:
+            initial_points = [self.discretizer.sample_from(ms) for ms in initial_microstates]
+
+
         dtrajs = self._sampler.sample_from_states(initial_points, traj_len, num_trajs, step_size)
+
         dtrajs = self._discretize_trajectories(dtrajs)
 
-        for i in range(len(initial_microstates)):
-            for j in range(num_trajs):
-                if dtrajs[num_trajs * i + j][0] != initial_microstates[i]:
-                    dtrajs[num_trajs * i + j][0] = initial_microstates[i]
+        if not configurations:
+            for i in range(len(initial_microstates)):
+                for j in range(num_trajs):
+                    if dtrajs[num_trajs * i + j][0] != initial_microstates[i]:
+                        dtrajs[num_trajs * i + j][0] = initial_microstates[i]
         return dtrajs
 
     def expand(self, max_cputime=np.inf, max_samples=np.inf, max_batches=np.inf):
@@ -91,14 +85,17 @@ class SelfExpandingMultiscaleMSM(ABC):
         n_samples = 0
         n_batches = 0
 
-
-        # Main loop: 1) sample from equilibrium 2) adaptive sampling for refinement 3) update; repeat
         while not stop_condition(n_samples=n_samples, n_batches=n_batches):
-            start_states = self.tree.sample_states_mid(self.config.n_trajectories)
-            # start_states = self.tree.sample_states(self.config.n_trajectories)
-            trajs = self._get_dtraj(start_states, 1, self.config.trajectory_len, self.config.base_tau)
-            self._hmsm_tree.update_model_from_trajectories(trajs)
-            self._hmsm_tree.do_all_updates_by_height()
+            if self._n_samples == 0:
+                start_states = [np.copy(self.x_init) for _ in range(self.config.n_trajectories)]
+                trajs = self._get_dtraj(start_states, 1, self.config.trajectory_len, self.config.base_tau,
+                                        configurations=True)
+            else:
+                start_states = self.tree.sample_states_mid(self.config.n_trajectories)
+                trajs = self._get_dtraj(start_states, 1, self.config.trajectory_len, self.config.base_tau)
+
+            self._mmsm_tree.update_model_from_trajectories(trajs)
+            self._mmsm_tree.do_all_updates_by_height()
 
             n_samples += self.batch_size
             n_batches += 1

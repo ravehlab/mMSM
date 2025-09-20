@@ -32,7 +32,7 @@ def hmsm_stats_1d(hmsm: SelfExpandingMultiscaleMSM, mmsm_data, disc_fn, edges):
         mmsm_data["exp_rate"] = []
 
     hmsm_clstrs, st_hmsm, incr = hmsm_full_hist(hmsm, disc_fn)
-    mmsm_data["time_ns"].append(hmsm.total_simulation_time * 1e-6)
+    mmsm_data["time_ns"].append(hmsm._sampler.total_simulation_time * 1e-6)
     mmsm_data["exp_rate"].append(coverage_hmsm_1d(hmsm_clstrs, edges[0], edges[-1]))
 
 
@@ -47,10 +47,12 @@ if __name__ == '__main__':
     f_name = args.out
     runtime_ns = args.runtime_ns
     disc_cutoff = 0.05
+    diameter_threshold = 4
     step_size = 30
-    rep_sample_size = 30
-    print_tree_info = True
-    save_interval = 5
+    base_tau = 1
+    rep_sample_size = 50
+    print_tree_info = False
+    save_interval = 3
 
     edges = [22, 24.41, 30.32, 39, 47.68, 53.6, 56]
     mins = [22.7, 27., 34., 44., 51., 55.25]
@@ -62,13 +64,14 @@ if __name__ == '__main__':
         hmsm_stats_1d(hmsm, data2, lambda x: x, edges)
 
     if args.c is None:
-        sampler = IMPBrownianDynamicsSampler(*model_fn(), warmup=None, step_size_fs=step_size, init_state=state_init_fn)
+        sampler = IMPBrownianDynamicsSampler(*model_fn(), warmup=None, step_size_fs=step_size)
         discretizer = DistanceDiscretizer(cutoff=disc_cutoff, representative_sample_size=rep_sample_size)
-        cnfg = mMSMConfig(n_trajectories=10, trajectory_len=10**4, max_height=-1,
+        cnfg = mMSMConfig(n_trajectories=5, trajectory_len=10**4, max_height=-1,
                           sampling_heuristics=['equilibrium', 'exploration'],
-                          sampling_heuristic_weights=[0.3, 0.7])
-        run_hmsm(sampler, discretizer, cnfg, f_name, runtime_ns, print_tree_info=print_tree_info,
-                 stats_fn=stat_fn_model1, save_interval=save_interval)
+                          sampling_heuristic_weights=[0.3, 0.7], partition_diameter_threshold=diameter_threshold,
+                          base_tau=base_tau, random_split=0.05)
+        run_hmsm(sampler, discretizer, x_init=state_init_fn(), mmsmconfig=cnfg, f_name=f_name, runtime_ns=runtime_ns,
+                 print_tree_info=print_tree_info, stats_fn=stat_fn_model1, save_interval=save_interval)
     else:
         prev_name = args.c
         with open(f'{prev_name}.pkl', 'rb') as f:
@@ -76,7 +79,8 @@ if __name__ == '__main__':
         with open(f'{prev_name}.data', 'rb') as f:
             data = pickle.load(f)
         mmsm._sampler.init_bd(*model_fn(), deserialized=True)
-        run_hmsm(None, None, None, f_name, runtime_ns, print_tree_info=print_tree_info,
-                 hmsm_init=mmsm, hmsm_init_data=data, stats_fn=stat_fn_model1, save_interval=save_interval)
+        run_hmsm(None, None, x_init=state_init_fn(), mmsmconfig=None, f_name=f_name,
+                 runtime_ns=runtime_ns, print_tree_info=print_tree_info, mmsm_init=mmsm, mmsm_init_data=data,
+                 stats_fn=stat_fn_model1, save_interval=save_interval)
 
 

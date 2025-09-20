@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 class mMSMConfig:
     n_trajectories: int = 10
     trajectory_len: int = 10**4
+    base_tau: int = 1
 
     sampling_heuristics: list = field(default_factory=lambda: ["equilibrium", "exploration", "equilibrium_inv"])
     sampling_heuristic_weights: list = field(default_factory=lambda: [0.6, 0.2, 0.2])
@@ -18,7 +19,7 @@ class mMSMConfig:
     vertex_sampler: str = 'auto'  # defaults to WeightedVertexSampler
 
     # Kinetics estimation parameters ###########
-    base_tau: int = 1
+    count_stride: int = 1
     alpha: float = 1.  # Dirichlet prior
     transition_estimator: str='Dirichlet_MMSE'
 
@@ -29,4 +30,6 @@ class mMSMConfig:
     partition_kwargs: dict = field(default_factory=dict)
 
     partition_diameter_threshold: int = 4
+    lag_time_ratio: int = 2
+    random_split: float = 0.0
     max_height: int = -1

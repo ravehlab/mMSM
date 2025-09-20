@@ -72,23 +72,19 @@ class BaseDiscretizer(ABC):
         cluster_ids : Iterable[int]
             The cluster ids of the data points
         data : np.ndarray of shape (n_samples, n_features)
-            The clustered data points 
+            The clustered data points
         """
-        for i, cluster_id in enumerate(cluster_ids):
-            self._cluster_count[cluster_id] += 1
-            if not self._representatives.get(cluster_id):
-                # If this is the first observation of this cluster
-                self._representatives[cluster_id] = [data[i].copy()]
-
-            sample_probability = self._representative_sample_size/self._cluster_count[cluster_id]
-            if np.random.random() < sample_probability:
-                # with probability r/n, keep this point. It can be seen by induction
-                # that this gives the desired property (where r is the number of representatives).
-                if self._cluster_count[cluster_id] < self._representative_sample_size:
-                    self._representatives[cluster_id].append(data[i].copy())
-                else:
-                    random_index = np.random.choice(self._representative_sample_size)
-                    self._representatives[cluster_id][random_index] = data[i].copy()
+        r = self._representative_sample_size
+        for i, cid in enumerate(cluster_ids):
+            self._cluster_count[cid] += 1
+            n = self._cluster_count[cid]
+            reps = self._representatives.setdefault(cid, [])
+            if len(reps) < r:
+                reps.append(data[i].copy())
+            else:
+                j = np.random.randint(n)
+                if j < r:
+                    reps[j] = data[i].copy()
 
     @property
     @abstractmethod

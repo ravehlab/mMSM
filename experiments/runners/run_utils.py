@@ -27,57 +27,63 @@ def print_levels(mmsm: SelfExpandingMultiscaleMSM):
         len(mmsm.tree._microstate_counts)))
 
 
-def run_hmsm(sampler, discretizer, hmsmconfig: mMSMConfig = None, f_name=None, runtime_ns=100, hmsm_init=None, hmsm_init_data=None,
+def run_hmsm(sampler, discretizer, x_init, mmsmconfig: mMSMConfig = None, f_name=None, runtime_ns=100, mmsm_init=None, mmsm_init_data=None,
              stats_fn=None, print_tree_info=False, save_interval=1, time_mult=1e-6):
     # time_mult = the multiplier to change the sampler's units to nanoseconds
     print(f"({os.getpid()}) {f_name}")
-    if hmsm_init is None:
-        hmsm = SelfExpandingMultiscaleMSM(sampler, discretizer, config=hmsmconfig)
+    if mmsm_init is None:
+        mmsm = SelfExpandingMultiscaleMSM(sampler, discretizer, x_init=x_init, config=mmsmconfig)
         data = dict()
         total_runtime = runtime_ns
         data["start_times"] = [0.0]
     else:
-        hmsm = hmsm_init
-        data = hmsm_init_data
-        total_runtime = hmsm.total_simulation_time*time_mult + runtime_ns
-        data["start_times"].append(hmsm.total_simulation_time*time_mult)
+        mmsm = mmsm_init
+        data = mmsm_init_data
+        sampler = mmsm._sampler
+        total_runtime = sampler.total_simulation_time*time_mult + runtime_ns
+        data["start_times"].append(sampler.total_simulation_time*time_mult)
 
     def save_all():
         if f_name is not None:
             with open(f_name + ".pkl", 'wb') as f:
-                pickle.dump(hmsm, f)
+                pickle.dump(mmsm, f)
             with open(f_name + ".data", 'wb') as f:
                 pickle.dump(data, f)
             with open(f_name + "_bu.pkl", 'wb') as f:
-                pickle.dump(hmsm, f)
+                pickle.dump(mmsm, f)
             with open(f_name + "_bu.data", 'wb') as f:
                 pickle.dump(data, f)
 
     # the total_simulation_time in the mmsm is in the time units of its sampler.
     # time_mult should be the conversion factor
-    start_time_ns = hmsm.total_simulation_time*time_mult
+    start_time_ns = sampler.total_simulation_time*time_mult
     s_time = time.time()
     save_counter = 0
-    while hmsm.total_simulation_time*time_mult < total_runtime:
+    while sampler.total_simulation_time*time_mult < total_runtime:
         e = time.time()
         if e - s_time > 0:
-            print("\r({3}) Total simulation time: {0:.3f}/{1} ns ({2:.4f}ns/h)".format(hmsm.total_simulation_time*time_mult, total_runtime,
-                                                                     3600*((hmsm.total_simulation_time*time_mult - start_time_ns) / (time.time() - s_time)),
+            print("\r({3}) Total simulation time: {0:.3f}/{1} ns ({2:.4f}ns/h)".format(sampler.total_simulation_time*time_mult, total_runtime,
+                                                                     3600*((sampler.total_simulation_time*time_mult - start_time_ns) / (time.time() - s_time)),
                                                                                    os.getpid()))
-        hmsm.expand(max_batches=save_interval)
+        mmsm.expand(max_batches=save_interval)
         if stats_fn is not None:
-            stats_fn(hmsm, data)
+            stats_fn(mmsm, data)
         save_counter += 1
         if True:
             save_all()
             save_counter = 0
         if print_tree_info:
             print("\r")
-            print_levels(hmsm)
+            print_levels(mmsm)
     print("")
     print("Final tree structure:")
-    print_levels(hmsm)
+    print_levels(mmsm)
     save_all()
+
+    # times = TimingLogger.get_times()
+    # print(times)
+    # with open(f'{f_name}.times', 'wb') as f:
+    #     pickle.dump(times, f)
 
 def count_transitions(traj: np.ndarray,
                       n_states: int,

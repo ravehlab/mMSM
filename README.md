@@ -21,14 +21,15 @@ For details, see the paper:
 
 ## Repository Structure
 
-| Directory/File                | Description                                         |
-|-------------------------------|-----------------------------------------------------|
-| `mmsm/`                       | Core implementation of the mMSM method              |
-| `implementations/alaninedp/`  | Implementation for the **alanine dipeptide** system |
-| `implementations/twospheres/` | Implementation for the **two-sphere** system        |
-| `experiments/runners/`        | Scripts for running simulations and generating results         |
-| `tutorial.ipynb`              | Jupyter Notebook tutorial demonstrating usage                    |
-| `README.md`                   | This file                                           |
+| Directory/File                | Description                                            |
+|-------------------------------|--------------------------------------------------------|
+| `mmsm/`                       | Core implementation of the mMSM method                 |
+| `implementations/alaninedp/`  | Implementation for the **alanine dipeptide** system    |
+| `implementations/twospheres/` | Implementation for the **two-sphere** system           |
+| `implementations/hp35/`       | Implementation for the **HP-35** system                |
+| `experiments/runners/`        | Scripts for running simulations and generating results |
+| `tutorial.ipynb`              | Jupyter Notebook tutorial demonstrating usage          |
+| `README.md`                   | This file                                              |
 
 ## Quick Start
 

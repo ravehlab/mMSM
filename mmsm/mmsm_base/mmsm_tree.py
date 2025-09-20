@@ -28,22 +28,18 @@ class MultiscaleMSMTree:
     UPDATE_T = 0
     REFINE = 1
 
-    def __init__(self, config:mMSMConfig, timestep):
+    def __init__(self, config:mMSMConfig):
         self.config = config
         self._partition_estimator = LeidenPartition()
         self._vertex_sampler = get_vertex_sampler(config)
         self._microstate_parents = dict()
         self._microstate_counts = count_dict(depth=2)
-        # The above is a (sparse) count matrix, which may be weighted. visit_count is the actual number of visits.
-        self._microstate_visit_counts = count_dict(depth=2)
         self._microstate_transitions = dict()
         self._last_update_sent = dict()
         self._update_queue = UniquePriorityQueue()
         self._levels = defaultdict(list)
         self.vertices = dict()
         self._init_root()
-        self.base_timestep = timestep
-        self.total_sim_time_ns = 0
 
     def _assert_valid_vertex(self, vertex_id):
         return self._is_microstate(vertex_id) or \
@@ -115,7 +111,7 @@ class MultiscaleMSMTree:
         this HMSM.
         """
         if self._is_microstate(vertex):
-            return max(1, sum(self._microstate_visit_counts[vertex].values()))
+            return max(1, sum(self._microstate_counts[vertex].values()))
         return self.vertices[vertex].n_samples
 
     def get_microstates(self, vertex=None):
@@ -152,8 +148,6 @@ class MultiscaleMSMTree:
             if True:
                 parent_id = self._microstate_parents[vertex_id]
                 self._update_vertex(parent_id)
-        self.total_sim_time_ns += np.sum([len(traj) for traj in dtrajs]) * self.base_timestep * 1e-6
-
 
     def force_update_all(self):
         """force_update_all.
@@ -224,7 +218,7 @@ class MultiscaleMSMTree:
     def do_all_updates_by_height(self):
         refine_history = set()
         while self._update_queue.not_empty():
-            # print(f"\rVertices: {len(self.vertices)} Updates: {updates_done} | {len(self._update_queue._queue.queue)}, Refines: {refines_done}/{len(refine_queue)}", end="")
+            # print(f"\rVertices: {len(self.vertices)} | {len(self._update_queue._queue.queue)}",  end="")
             (height, task), vertex_id = self._update_queue.get()
             vertex: MultiscaleMSMVertex = self.vertices.get(vertex_id)
             if vertex is None:
@@ -237,12 +231,13 @@ class MultiscaleMSMTree:
                 if (vertex.id, vertex.height) not in refine_history:
                     refine_history.add((vertex.id, vertex.height))
                     self._refine_partition(vertex)
-        # print(f"Merges: {self.moves_done} / {self.moves_tried}")
         self._trim_top_levels()
 
 
 
     def _trim_top_levels(self):
+        if self.height == 1:
+            return
         to_del = dict()
         cur_height = self.height - 1  # start from the root's children
         while np.all(np.array([len(self.vertices[v].children) for v in self.get_level(cur_height)]) == 1) and cur_height != 1:
@@ -266,8 +261,10 @@ class MultiscaleMSMTree:
         del self._levels[root.height]
         root._children = set(self.get_level(cur_height))
         root.height = cur_height + 1
+        root.tau = self.vertices[list(root._children)[0]].tau * self.config.lag_time_ratio
         self._levels[root.height] = [root.id]
         self.vertices[self._root].update()
+
 
     def _refine_partition(self, vertex: MultiscaleMSMVertex):
         if vertex._check_split_condition():
@@ -275,9 +272,11 @@ class MultiscaleMSMTree:
             self._update_split(partition, split_vertex, parent)
             self.vertices[parent].partition_changed = True
             return
-        self.partition_changed = False
+        vertex.partition_changed = False
         if len(vertex.neighbors) > 2:
             if self._merge_vertex(vertex):
+                # if vertex.parent in self.vertices:  # Check if the parent was deleted during the merge
+                #     self.vertices[vertex.parent].partition_changed = True
                 return
         if vertex._check_parent_update_condition():
             self._update_vertex(vertex.parent)
@@ -319,7 +318,7 @@ class MultiscaleMSMTree:
     def _get_T_multiple_vertices(self, vertex_list):
         children_ext_Ts = {c: self.get_external_T(c) for v in vertex_list
                            for c in self.vertices[v].children}
-        participating_vertices = np.array(list({v for ids, _ in children_ext_Ts.values() for v in ids}))
+        participating_vertices = np.array(list({v for ids, _ in children_ext_Ts.values() for v in ids}.union(set(children_ext_Ts.keys()))))
         id_to_index = {vid: i for i, vid in enumerate(participating_vertices)}
         T = np.zeros((len(participating_vertices), len(participating_vertices)))
         for src, (ids, row) in children_ext_Ts.items():
@@ -423,6 +422,8 @@ class MultiscaleMSMTree:
         dummy_vertex._T_is_updated = True
 
         start_vertex = self._vertex_sampler(dummy_vertex, n_samples)
+        if start_from_lvl == 0:
+            return  start_vertex
         return [self.vertices[v].sample_microstate(1)[0] for v in start_vertex]
 
     def get_path_to_root(self, vertex_id):
@@ -433,16 +434,14 @@ class MultiscaleMSMTree:
             path.append(self.get_parent(path[-1]))
         return path
 
-    def _count_transitions(self, dtrajs):
+    def _count_transitions_old(self, dtrajs):
         updated_microstates = set()
         parents_2_new_microstates = defaultdict(set)
-        ms_weight = defaultdict(lambda: 1)
         for dtraj in dtrajs:
             if len(dtraj) == 0:
                 continue
             updated_microstates.update(dtraj)
             src = dtraj[0]
-            weight = ms_weight[src]
 
             # check if the first state is new, this should only happen at initialization, where
             # the microstate level is the top level MSM, sot the parent is always the root.
@@ -450,14 +449,12 @@ class MultiscaleMSMTree:
                 assert self.height == 1
                 self._microstate_parents[src] = self.root
                 _=self._microstate_counts[src][src]
-                _=self._microstate_visit_counts[src][src]
                 parents_2_new_microstates[self.root].add(src)
 
-            for i in range(1, len(dtraj)):
-                dst = dtraj[i]
+            for i in range(1, len(dtraj) - self.config.count_stride + 1):
+                dst = dtraj[i + self.config.count_stride - 1]
                 # count the observed transition
-                self._microstate_counts[src][dst] += weight
-                self._microstate_visit_counts[src][dst] += 1
+                self._microstate_counts[src][dst] += 1
                 # evaluate the reverse transition, so that it will be set to 0 if none have been
                 # observed yet. This is so that the prior weight of this transition will be alpha
                 _ = self._microstate_counts[dst][src]
@@ -467,23 +464,50 @@ class MultiscaleMSMTree:
                     parent = self._microstate_parents[src]
                     self._microstate_parents[dst] = parent
                     parents_2_new_microstates[parent].add(dst)
-                src = dst
+                src = dtraj[i]
         return updated_microstates, parents_2_new_microstates
 
-    # def _check_parent_update_condition(self, microstate):
-    #     """Check if a microstates transition probabilities have changed enough to trigger
-    #     its parent to update
-    #     """
-    #     # check if no updates have been made yet
-    #     if self._last_update_sent.get(microstate) is None:
-    #         return True
-    #     # check if new transitions have been observed since last update
-    #     if set(self._last_update_sent[microstate][0])!=set(self._microstate_transitions[microstate][0]):
-    #         return True
-    #
-    #     max_change_factor = max_fractional_difference(self._last_update_sent[microstate], \
-    #                                                        self._microstate_transitions[microstate])
-    #     return max_change_factor >= self.config.parent_update_threshold
+    def _count_transitions(self, dtrajs):
+        updated_microstates = set()
+        parents_2_new_microstates = defaultdict(set)
+        for dtraj in dtrajs:
+            if len(dtraj) == 0:
+                continue
+            updated_microstates.update(dtraj)
+            for i in range(len(dtraj) - self.config.count_stride):
+                src = dtraj[i]
+                dst = dtraj[i + self.config.count_stride]
+
+                self._microstate_counts[src][dst] += 1
+                # evaluate the reverse transition, so that it will be set to 0 if none have been
+                # observed yet. This is so that the prior weight of this transition will be alpha
+                _ = self._microstate_counts[dst][src]
+
+                # attach new microstates to the tree
+
+
+                if not self._is_microstate(src):
+                    if i == 0:
+                        # The initial state is a new microstate; this should happen only on initialization
+                        assert self.height == 1
+                        self._microstate_parents[src] = self.root
+                        _=self._microstate_counts[src][src]
+                        parents_2_new_microstates[self.root].add(src)
+                    else:
+                        # The new microstate must be among the first [1, self.config.count_stride - 1] states;
+                        # assign it the parent of the previous state
+                        parent = self._microstate_parents[dtraj[i -1]]
+                        self._microstate_parents[src] = parent
+                        parents_2_new_microstates[parent].add(src)
+
+
+                if not self._is_microstate(dst):
+                    # The source should have a parent; assign the destination to it
+                    parent = self._microstate_parents[src]
+                    self._microstate_parents[dst] = parent
+                    parents_2_new_microstates[parent].add(dst)
+
+        return updated_microstates, parents_2_new_microstates
 
     def _connect_to_new_parent(self, children_ids, parent_id):
         """
@@ -519,7 +543,7 @@ class MultiscaleMSMTree:
             self._remove_vertex(split_vertex.id)
         else:
             # the root is going up a level, so its children will be the new vertices
-            new_tau = split_vertex.tau * 2
+            new_tau = split_vertex.tau * self.config.lag_time_ratio
             self._levels[self.height].remove(self.root)
             split_vertex.remove_children(split_vertex.children)
             self.vertices[parent].add_children(new_vertices)
@@ -527,6 +551,7 @@ class MultiscaleMSMTree:
             split_vertex.tau = new_tau
             self._add_vertex(split_vertex)
         self._update_vertex(parent)
+        return new_vertices
 
     def _update_merge(self, s_merge, s_into):
         pass
@@ -598,9 +623,26 @@ class MultiscaleMSMTree:
         # for v in self.vertices.values():
         #     assert v.parent is not vertex
 
-    def _random_step(self, vertex_id):
-        next_states, transition_probabilities = self.get_external_T(vertex_id)
-        return np.random.choice(next_states, p=transition_probabilities)
+    def _remove_microstates(self, microstate_ids):
+        parents_updates = {self._microstate_parents[ms] for ms in microstate_ids}
+        for ms in microstate_ids:
+            self._microstate_parents.pop(ms, None)
+            self._microstate_counts.pop(ms, None)
+            self._microstate_transitions.pop(ms, None)
+        for src, src_counts in self._microstate_counts.items():
+            for ms_to_remove in microstate_ids:
+                src_counts.pop(ms_to_remove, None)
+            self._microstate_transitions[src] = dirichlet_MMSE(src_counts, self.alpha)
+
+        for parent in parents_updates:
+            vertex = self.vertices[parent]
+            vertex.remove_children(microstate_ids)
+            if vertex.n == 0:
+                self._remove_vertex(parent)
+            self._update_vertex(parent, height=1)
+        for ms in self.get_level(1):
+            self._update_vertex(ms)
+        self.do_all_updates_by_height()
 
     def __getstate__(self):
         self._update_queue = None

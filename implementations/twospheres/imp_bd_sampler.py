@@ -10,12 +10,11 @@ class IMPBrownianDynamicsSampler(BaseTrajectorySampler):
     REMINDER: trajectories are a list of (trajectory length), with each step
     being [# particles, 3]."""
 
-    def __init__(self, model: IMP.Model, scoring_func: IMP.ScoringFunction, temperature=300, step_size_fs=1000.0,
-                 init_state=None, warmup: int = None, *args, **kwargs):
+    def __init__(self, model: IMP.Model, scoring_func: IMP.ScoringFunction, temperature=300, step_size_fs=1000,
+                 warmup: int = None, *args, **kwargs):
         super().__init__()
         self.model = model
         self.scoring_func = scoring_func
-        self.init_state = init_state
         self.warmup = warmup
         self.step_size_fs = step_size_fs
         self.temperature = temperature
@@ -23,16 +22,19 @@ class IMPBrownianDynamicsSampler(BaseTrajectorySampler):
         self._h_root = None
         self._all_xyzs = None
         self.init_bd()
-
-        self.first_state = self.get_current_coordinates()
+        self._total_simulation_time_fs = 0
 
         # These are only used for serialization purposes
         self._last_time = 0
         self._last_state = None
 
     @property
-    def timestep_size(self):
+    def timestep(self):
         return self.step_size_fs
+
+    @property
+    def total_simulation_time(self):
+        return self._total_simulation_time_fs
 
     def init_bd(self, model=None, scoring_func=None, deserialized=False):
         """Sets up the Brownian dynamics object."""
@@ -51,82 +53,41 @@ class IMPBrownianDynamicsSampler(BaseTrajectorySampler):
             self.bd.set_current_time(self._last_time)
             self.set_all_coordinates(self._last_state)
 
-    def get_initial_sample(self, sample_len, n_samples, sample_interval=1):
-        trajs = [[] for _ in range(n_samples)]
-        for i in range(n_samples):
-            self.reset_coordinates()
-            if self.warmup is not None:
-                prev_time = self.bd.get_current_time()
-                self.bd.optimize(self.warmup)
-                self.bd.set_current_time(prev_time)
-            for j in range(sample_len):
-                self.bd.optimize(sample_interval)
-                trajs[i].append(self.get_current_coordinates())
-        return trajs
-
     def sample_from_states(self, states, sample_len, n_samples, sample_interval=1):
         """Sample trajectories from a given list of states."""
         trajs = []
         for s in states:
             for i in range(n_samples):
-                temp_traj = []
+                temp_traj = [np.copy(s)]
                 self.set_all_coordinates(s)
-                for j in range(sample_len):
+                for j in range(sample_len - 1):
                     self.bd.optimize(sample_interval)
                     temp_traj.append(self.get_current_coordinates())
                 trajs.append(temp_traj)
+        self._total_simulation_time_fs += len(states) * n_samples * (sample_len - 1) * sample_interval * self.step_size_fs
         return trajs
-
-    def perturb_state(self, state, steps=5, step_mod=0.1):
-        self.set_all_coordinates(state)
-        self.bd.set_maximum_time_step(self.step_size_fs * step_mod)
-        self.bd.optimize(steps)
-        self.bd.set_maximum_time_step(self.step_size_fs)
-        return self.get_current_coordinates()
 
     def sample_from_current_state(self, sample_len, n_samples, sample_interval=1):
         """Sample trajectories from the current configuration of the system."""
         start_point = self.get_current_coordinates()
-        trajs = [[] for _ in range(n_samples)]
+        trajs = [[np.copy(start_point)] for _ in range(n_samples)]
         for i in range(n_samples):
             self.set_all_coordinates(start_point)
-            for j in range(sample_len):
+            for j in range(sample_len - 1):
                 self.bd.optimize(sample_interval)
                 trajs[i].append(self.get_current_coordinates())
+        self._total_simulation_time_fs += n_samples * (sample_len - 1) * sample_interval * self.step_size_fs
         return trajs
 
     def get_current_coordinates(self):
         """Returns the current coordinates of all terminal particles."""
         return np.array([(pxyz.get_x(), pxyz.get_y(), pxyz.get_z()) for pxyz in self._all_xyzs])
 
-    def get_current_coordinates_numpy(self):
-        """Returns the current coordinates of all terminal particles."""
-        # TODO: This probably has a bug
-        xyzs, rs = self.model.get_spheres_numpy()
-        return xyzs[np.all(np.isfinite(xyzs), axis=1)].copy()
-
     def set_all_coordinates(self, vals):
         """Sets all particle coordinates to vals. vals should be an iterable of
         coordinates for each particle."""
         for i, v in enumerate(self._all_xyzs):
             v.set_coordinates(IMP.algebra.Vector3D(*vals[i]))
-
-    def reset_coordinates(self):
-        """Sets all coordinates to their initial state."""
-        set_state = None
-        if self.init_state is None:
-            # zvec = IMP.algebra.Vector3D(0, 0, 0)
-            # for v in self._all_xyzs:
-            #     v.set_coordinates(zvec)
-            # set_state = [[0, 0, 0] for _ in self._all_xyzs]
-            set_state = self.first_state
-        elif isinstance(self.init_state, int) and self.init_state == 0:
-            set_state = [[0, 0, 0] for _ in self._all_xyzs]
-        elif callable(self.init_state):
-            set_state = self.init_state()
-        else:
-            set_state = self.init_state
-        self.set_all_coordinates(set_state)
 
     # TODO: Find a way to save/serialize Swig objects
     def __getstate__(self):

@@ -28,6 +28,7 @@ class MultiscaleMSMVertex:
         self.index_2_id = None
         self.id_2_index = None
         self.partition_changed = False
+        self.last_n_children = 0
 
 
     @property
@@ -206,6 +207,11 @@ class MultiscaleMSMVertex:
         self._set_local_stationary_distribution()
         self._T_is_updated = True
         self._update_external_T()
+
+        # if self.n != self.last_n_children and self.last_n_children != 0:
+        #     # print(f"{self.id} : {self.last_n_children} -> {self.n}.")
+        #     self.partition_changed = True
+        # self.last_n_children = self.n
 
     def _get_id_2_index_map(self, column_ids):
         """Return a dict that maps each id to the index of its row/column in T, and the

@@ -10,7 +10,7 @@ from experiments.runners.run_utils import count_transitions, GracefulKiller
 
 
 class TrajProcessor:
-    def __init__(self, num_bins, bin_range, discretizer_fn, num_trajs=1):
+    def __init__(self, num_bins, bin_range, discretizer_fn):
         self.bin_range = bin_range
         self.num_bins = num_bins
         bins = np.linspace(bin_range[0], bin_range[1], num_bins + 1)
@@ -19,11 +19,11 @@ class TrajProcessor:
         self.t_counts = np.zeros((self.clstrs.shape[0], self.clstrs.shape[0]))
         self.dfn = discretizer_fn
         self.hist = np.zeros_like(self.clstrs)
-        self.last_configs = [None for _ in range(num_trajs)]
+        self.last_config = None
         self.statistics = dict()
 
-    def process(self, data, traj_id=0):
-        self.last_configs[traj_id] = data[-1]
+    def process(self, data):
+        self.last_config = data[-1]
         dtraj = self.dfn(np.array(data))
         binned_s = binned_statistic(x=dtraj, values=None, statistic='count', bins=self.num_bins, range=self.bin_range)
         self.hist += binned_s.statistic
@@ -68,16 +68,16 @@ def run_sim(out_file: str, runtime_ns, tp_cont=None):
                                             init_state=state_init_fn)
 
     if tp_cont is None:
-        tp = TrajProcessor(n_bins, (edges[0], edges[-1]), dist_np, 1)
-        for i in range(len(tp.last_configs)):
-            impbd_samp.reset_coordinates()
-            tp.last_configs[i] = impbd_samp.get_current_coordinates()
+        tp = TrajProcessor(n_bins, (edges[0], edges[-1]), dist_np)
+
+        tp.last_config = state_init_fn()
+        impbd_samp.set_all_coordinates(tp.last_config)
         impbd_samp.bd.set_current_time(0.0)
         tp.statistics["step_size"] = step_size_fs
         tp.statistics['time_ns'] = []
     else:
         tp = tp_cont
-        impbd_samp.set_all_coordinates(tp.last_configs[0])
+        impbd_samp.set_all_coordinates(tp.last_config)
         impbd_samp.bd.set_current_time(tp.statistics["time_ns"][-1] / 1e-6)
         if step_size_fs != tp.statistics["step_size"]:
             print("Step size mismatch, config: {0}, actual: {1}".format(step_size_fs,
@@ -90,9 +90,8 @@ def run_sim(out_file: str, runtime_ns, tp_cont=None):
     killer = GracefulKiller()
     while impbd_samp.bd.get_current_time() * 1e-6 - start_time < runtime_ns:
         traj += impbd_samp.sample_from_current_state(500000, 1, 1)[0]
-        tp.process(traj, traj_id=cur_traj)
+        tp.process(traj)
         stat_fn_1d(tp, impbd_samp, edges)
-        cur_traj = (cur_traj + 1) % len(tp.last_configs)
         traj = []
         with open(out_file, 'wb') as f:
             pickle.dump(tp, f)
