@@ -56,7 +56,7 @@ class SelfExpandingMultiscaleMSM:
         return [self.discretizer.get_coarse_grained_states(traj) for traj in trajs]
 
     def _get_dtraj(self, initial_microstates, num_trajs, traj_len, step_size, configurations=False):
-        if configurations:
+        if configurations or self.config.adaptive_sampling is False:
             initial_points = initial_microstates
         else:
             initial_points = [self.discretizer.sample_from(ms) for ms in initial_microstates]
@@ -66,7 +66,7 @@ class SelfExpandingMultiscaleMSM:
 
         dtrajs = self._discretize_trajectories(dtrajs)
 
-        if not configurations:
+        if not configurations and self.config.adaptive_sampling:
             for i in range(len(initial_microstates)):
                 for j in range(num_trajs):
                     if dtrajs[num_trajs * i + j][0] != initial_microstates[i]:
@@ -91,7 +91,10 @@ class SelfExpandingMultiscaleMSM:
                 trajs = self._get_dtraj(start_states, 1, self.config.trajectory_len, self.config.base_tau,
                                         configurations=True)
             else:
-                start_states = self.tree.sample_states_mid(self.config.n_trajectories)
+                if self.config.adaptive_sampling:
+                    start_states = self.tree.sample_states_mid(self.config.n_trajectories)
+                else:
+                    start_states = []
                 trajs = self._get_dtraj(start_states, 1, self.config.trajectory_len, self.config.base_tau)
 
             self._mmsm_tree.update_model_from_trajectories(trajs)

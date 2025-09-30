@@ -6,11 +6,6 @@ from scipy.spatial import cKDTree
 from mmsm.mmsm_base.util import get_unique_id
 
 
-PATH_MEANS = "./runfiles/means.npy"
-PATH_STDS = "./runfiles/stds.npy"
-PATH_PCS = "./runfiles/pcs10.npy"
-
-
 @numba.njit
 def _farthest_first_indices(data, cutoff):
     """
@@ -134,12 +129,16 @@ class FastKCentersDiscretizer(BaseDiscretizer):
         self._id_2_cluster_inx = new_id2ci
 
 class HP35DiscretizerPreexisting(BaseDiscretizer):
+    PATH_MEANS = "./runfiles/means.npy"
+    PATH_STDS = "./runfiles/stds.npy"
+    PATH_PCS = "./runfiles/pcs10.npy"
+
     def __init__(self, cutoff, representative_sample_size=10, pca=True):
         super().__init__(representative_sample_size)
         self._kcenters = FastKCentersDiscretizer(cutoff, representative_sample_size)
-        self.means = np.load(PATH_MEANS)
-        self.stds = np.load(PATH_STDS)
-        self.pc = np.load(PATH_PCS)
+        self.means = np.load(HP35DiscretizerPreexisting.PATH_MEANS)
+        self.stds = np.load(HP35DiscretizerPreexisting.PATH_STDS)
+        self.pc = np.load(HP35DiscretizerPreexisting.PATH_PCS)
         self.pca = pca
 
     @property

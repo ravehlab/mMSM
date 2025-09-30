@@ -14,6 +14,7 @@ class mMSMConfig:
 
     sampling_heuristics: list = field(default_factory=lambda: ["equilibrium", "exploration", "equilibrium_inv"])
     sampling_heuristic_weights: list = field(default_factory=lambda: [0.6, 0.2, 0.2])
+    adaptive_sampling: bool = True
 
     vertex_sampler_kwargs: dict = field(default_factory=dict)
     vertex_sampler: str = 'auto'  # defaults to WeightedVertexSampler
@@ -33,3 +34,5 @@ class mMSMConfig:
     lag_time_ratio: int = 2
     random_split: float = 0.0
     max_height: int = -1
+
+
