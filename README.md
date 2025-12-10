@@ -14,10 +14,10 @@ mMSM is designed to:
 While this work primarily demonstrates the method for **molecular dynamics (MD) simulations**, mMSM is in 
 principle applicable to other types of simulations (e.g., Monte-Carlo).
 
-For details, see the paper:  
-**Title:** *Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities*  
-**Author:** Nir Nitskansky, Kessem Clein, Barak Raveh  
-*(Manuscript under review)*
+**For full details:**  
+Nitskansky Nir, Clein Kessem and  Raveh B (2025)
+Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities.
+*Bioinformatics, btaf585* https://doi.org/10.1093/bioinformatics/btaf585
 
 ## Repository Structure
 
@@ -63,7 +63,9 @@ Check out the **Jupyter Notebook tutorial**:
 @article{nitskansky-clein-raveh2025,
   author  = {Nir Nitskansky and Kessem Clein and Barak Raveh},
   title   = {Building Multiscale Markov State Models by Systematic Mapping of Temporal Communities},
-  note    = {Manuscript under review, 2025}
+  journal = {Bioinformatics},
+  year = {2025},
+  doi = {10.1093/bioinformatics/btaf585}
 }
 
 
